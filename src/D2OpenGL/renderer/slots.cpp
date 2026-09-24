@@ -16,6 +16,14 @@
 
 namespace {
 
+// 1.10f's D2gfx sends option 8 before its windowed flag is final; take the flag itself when the window is
+// (re)created.
+void SyncWindowedFlag()
+{
+    if (g_host.pD2gfxWindowed)
+        g_bFullscreen = (*g_host.pD2gfxWindowed == 0);
+}
+
 // Win 0 / Mac 0 002df3c4
 BOOL SLOT Slot00_Initialize(HINSTANCE hInstance)
 {
@@ -37,6 +45,7 @@ BOOL SLOT Slot02_Release()
 // Win 3 / Mac 3 002df47b
 BOOL SLOT Slot03_CreateWindow(HWND hWnd, int nResolutionMode)
 {
+    SyncWindowedFlag();
     g_hWnd = hWnd;
     return OGL_CreateWindow(hWnd, nResolutionMode);
 }
@@ -75,6 +84,7 @@ BOOL SLOT Slot08_EndScene2()
 // Win 9 / Mac 9 002dfbe3
 BOOL SLOT Slot09_ResizeWindow(HWND hWnd, int nResolutionMode)
 {
+    SyncWindowedFlag();
     g_hWnd = hWnd;
     return OGL_ResizeWindow(hWnd, nResolutionMode);
 }

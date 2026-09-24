@@ -116,6 +116,12 @@ BOOL install_dllera(GameBuildId build, const char *self_path)
         return TRUE;
     }
 
+    /* Fullscreen switches the display to the game's resolution; the window must then be DPI-aware, which
+     * only counts before it is created. Where the renderer learns about fullscreen only once the window
+     * exists (1.10f), decide from the command line now. */
+    if (build == BUILD_110F && !has_switch(GetCommandLineA(), "w"))
+        SetProcessDPIAware();
+
     DWORD base = (DWORD)(DWORD_PTR)GetModuleHandleA("D2gfx.dll");
     static const void *const empty = NULL;
     if (!install_patch(base + install->name_slot_rva, &empty, &self_path, sizeof self_path))

@@ -77,6 +77,8 @@ struct HostApi {
     uint32_t *pdwTotalPhysicalMemory;
     // Where D2GfxDataStrc keeps the current DC6Block pointer: +0x3C, but +0x00 on 1.10f.
     uint32_t nGfxDataBlockOffset;
+    // D2gfx's windowed flag, where option 8 does not carry it (1.10f); NULL elsewhere.
+    const int *pD2gfxWindowed;
 };
 
 extern HostApi g_host;

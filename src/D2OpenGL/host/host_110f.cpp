@@ -92,5 +92,6 @@ bool host_init_110f()
     h.HideOSCursor = hide_os_cursor_110f;
     h.ShowOSCursor = show_os_cursor_110f;
     h.nGfxDataBlockOffset = 0x00;
+    h.pD2gfxWindowed = reinterpret_cast<const int *>(reinterpret_cast<BYTE *>(d2gfx) + 0x1d268);
     return true;
 }
