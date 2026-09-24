@@ -64,6 +64,7 @@ bool host_init_114d()
 
     // Fog InitializeSystemInfo 00407efb stores MEMORYSTATUS.dwTotalPhys here.
     bind(h.pdwTotalPhysicalMemory, 0x0074D898);
+    h.nGfxDataBlockOffset = 0x3C;
 
     HMODULE bink = GetModuleHandleA("binkw32.dll");
     if (!bink) {

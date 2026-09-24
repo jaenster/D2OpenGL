@@ -10,8 +10,9 @@ GL_LIBS  := -lopengl32 -lgdi32 -luser32
 BUILD    := build
 
 COMMON_SRC   := src/common/log.c src/common/build.c
-RENDERER_C   := src/D2OpenGL/dllmain.c src/D2OpenGL/launch.c \
-                src/D2OpenGL/install/patch.c src/D2OpenGL/install/install_114d.c
+RENDERER_C   := src/D2OpenGL/dllmain.c src/D2OpenGL/launch.c src/D2OpenGL/d2loader.c \
+                src/D2OpenGL/install/patch.c src/D2OpenGL/install/install_114d.c \
+                src/D2OpenGL/install/install_dllera.c
 RENDERER_CXX := $(wildcard src/D2OpenGL/*.cpp src/D2OpenGL/*/*.cpp)
 
 RENDERER_OBJ := $(patsubst %.c,$(BUILD)/%.o,$(COMMON_SRC) $(RENDERER_C)) \

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../common/build.h"
 #include "../common/log.h"
 
 typedef struct LaunchStub {
@@ -63,7 +64,10 @@ void CALLBACK Play(HWND hwnd, HINSTANCE inst, LPSTR args, int show)
     if (!own_folder(g_self, dll_path, folder))
         return fail("cannot find its own folder");
     snprintf(exe, sizeof exe, "%s\\Game.exe", folder);
-    snprintf(cmdline, sizeof cmdline, "\"%s\" -opengl %s", exe, args ? args : "");
+    /* 1.10f's Game.exe cannot be patched to pick OpenGL; with -3dfx its client draws with the 3D-card
+     * paths, and the DLL switches D2gfx itself to OpenGL. */
+    const char *extra = build_identify_folder(folder) == BUILD_110F ? " -3dfx" : "";
+    snprintf(cmdline, sizeof cmdline, "\"%s\" -opengl%s %s", exe, extra, args ? args : "");
 
     STARTUPINFOA si;
     ZeroMemory(&si, sizeof si);

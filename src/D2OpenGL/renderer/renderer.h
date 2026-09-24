@@ -24,6 +24,12 @@
 // inside the halting function.
 uintptr_t OGL_GetReturnAddress(void);
 [[noreturn]] void OGL_Halt(uintptr_t nAddress, int nLine);
+// The D2GfxDataStrc's current DC6 block; its offset depends on the game build.
+inline DC6Block *OGL_GfxDataBlock(D2GfxDataStrc *pData)
+{
+    return *reinterpret_cast<DC6Block **>(reinterpret_cast<BYTE *>(pData) + g_host.nGfxDataBlockOffset);
+}
+
 #define OGL_HALT(line) OGL_Halt(OGL_GetReturnAddress(), (line))
 
 // Storm operator new / new[] / delete / delete[] (Mac 000095fc, 000096b0, 00009632, 00009671), which

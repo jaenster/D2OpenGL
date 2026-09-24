@@ -22,18 +22,40 @@ void *const *renderer_query(void)
     return renderer_table();
 }
 
-static void attach_to_game(void)
+/* Installs the renderer into the running game, once; TRUE when that has happened. Called when this DLL loads
+ * and again from the D2Loader plugin path, in case the game DLLs were not loaded yet. */
+BOOL d2opengl_attach(void)
 {
+    static BOOL attached;
+    if (attached)
+        return TRUE;
     GameBuildId build = build_identify();
     if (build == BUILD_UNKNOWN)
-        return;
+        return FALSE;
+    attached = TRUE;
     d2log_reset();
     d2log("D2OpenGL: host is %s", build_name(build));
-    if (build != BUILD_114D)
-        return;
-    void *const *table = renderer_query();
-    if (table)
-        d2log("D2OpenGL: install %s", install_114d(table) ? "ok" : "FAILED");
+    switch (build) {
+    case BUILD_114D: {
+        void *const *table = renderer_query();
+        if (table)
+            d2log("D2OpenGL: install %s", install_114d(table) ? "ok" : "FAILED");
+        break;
+    }
+    case BUILD_110F:
+    case BUILD_113C:
+    case BUILD_113D: {
+        /* D2gfx loads this DLL by name later and fetches the table through ordinal 10000. */
+        static char self_path[MAX_PATH];
+        DWORD n = GetModuleFileNameA(g_self, self_path, MAX_PATH);
+        BOOL ok = n > 0 && n < MAX_PATH && install_dllera(build, self_path);
+        d2log("D2OpenGL: install %s", ok ? "ok" : "FAILED");
+        break;
+    }
+    default:
+        break;
+    }
+    return TRUE;
 }
 
 BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
@@ -41,7 +63,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
     if (reason == DLL_PROCESS_ATTACH) {
         g_self = inst;
         DisableThreadLibraryCalls(inst);
-        attach_to_game();
+        d2opengl_attach();
     } else if (reason == DLL_PROCESS_DETACH && reserved == NULL) {
         /* FreeLibrary only: at process exit Storm's heap may already be gone. */
         platform_run_atexit();

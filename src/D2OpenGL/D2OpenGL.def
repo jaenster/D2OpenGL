@@ -1,4 +1,5 @@
 LIBRARY D2OpenGL.dll
 EXPORTS
-    QueryInterface = renderer_query @10000 NONAME
+    renderer_query @10000 NONAME
     Play = Play@16
+    QueryInterface = d2loader_query_interface@0

@@ -3,6 +3,7 @@ This licence covers only the code written for this project:
   src/common/
   src/D2OpenGL/dllmain.c
   src/D2OpenGL/launch.c
+  src/D2OpenGL/d2loader.c
   src/D2OpenGL/install/
   src/D2OpenGL/host/
   src/D2OpenGL/renderer/slots.cpp

@@ -75,6 +75,8 @@ struct HostApi {
     // Game data the renderer reads.
     // Fog system info: total physical RAM (Mac 005ebc38+0xc, read by OGL_CanUseAGPTextures 002e5f00).
     uint32_t *pdwTotalPhysicalMemory;
+    // Where D2GfxDataStrc keeps the current DC6Block pointer: +0x3C, but +0x00 on 1.10f.
+    uint32_t nGfxDataBlockOffset;
 };
 
 extern HostApi g_host;

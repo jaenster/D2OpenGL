@@ -480,13 +480,13 @@ BOOL OGL_SpriteLoad(D2GfxDataStrc *pData, OGLSprite *pSprite)
 {
     if (!g_host.GetOrLoadSprite(pData, 0, 1))
         return FALSE;
-    if (!pData->pDC6Block)
+    if (!OGL_GfxDataBlock(pData))
         OGL_HALT(179);
     pSprite->pData = pData;
-    pSprite->nWidth = g_host.GetDC6Width(pData->pDC6Block);
-    pSprite->nOffsetX = g_host.GetDC6OffsetX(pData->pDC6Block);
-    pSprite->nHeight = g_host.GetDC6Height(pData->pDC6Block);
-    pSprite->nOffsetY = g_host.GetDC6OffsetY(pData->pDC6Block);
+    pSprite->nWidth = g_host.GetDC6Width(OGL_GfxDataBlock(pData));
+    pSprite->nOffsetX = g_host.GetDC6OffsetX(OGL_GfxDataBlock(pData));
+    pSprite->nHeight = g_host.GetDC6Height(OGL_GfxDataBlock(pData));
+    pSprite->nOffsetY = g_host.GetDC6OffsetY(OGL_GfxDataBlock(pData));
     return TRUE;
 }
 
@@ -529,7 +529,7 @@ void OGL_SpriteCalcTextureSize(OGLSprite *pSprite)
 // Mac 002e34d7
 BOOL OGL_SpriteBindTexture(const OGLSprite *pSprite, BYTE *pPalette, BYTE nOutlineColor, int nTexMode)
 {
-    DC6Block *pBlock = pSprite->pData->pDC6Block;
+    DC6Block *pBlock = OGL_GfxDataBlock(pSprite->pData);
     if (!pBlock)
         OGL_HALT(269);
 
