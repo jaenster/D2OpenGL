@@ -33,7 +33,6 @@ No game file is modified on disk; the DLL re-enables the game's OpenGL path in m
 - Diablo II 1.14d, 1.13d, 1.13c and 1.10f.
 - So far tested on Windows 11 in a virtual machine (Parallels). 1.14d windowed and fullscreen; 1.13d and
   1.13c in game, windowed; 1.10f to the main menu.
-- Known issue: on 1.13c some shadows are drawn as a checkerboard.
 
 ## Build
 
