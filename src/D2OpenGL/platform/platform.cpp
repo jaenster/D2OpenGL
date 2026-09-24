@@ -5,6 +5,7 @@
 #include "../renderer/renderer.h"
 
 #include "../../common/log.h"
+#include "../present/present.h"
 
 // ---- display helpers (CGDirectDisplayID -> HMONITOR; NULL is the primary display)
 
@@ -157,6 +158,9 @@ BOOL OGL_PlatformCreateSurface(int nResolution)
 {
     if (g_bFullscreen != 1)
         return TRUE;
+    // Present stage: borderless fullscreen keeps the desktop's display mode.
+    if (Present_KeepsDisplayMode())
+        return TRUE;
 
     DEVMODEA dmCurrent;
     g_bDisplayModeChanged = Platform_GetCurrentDisplayMode(g_hDisplay, &dmCurrent);
@@ -198,7 +202,8 @@ int16_t OGL_PlatformSwapContext(int nResolution, int nColorBits, int nUnused)
     if (nColorBits == 0)
         nColorBits = g_nColorBits;
     int16_t nResult = 0;
-    if (g_bFullscreen == 1) {
+    // Present stage: borderless fullscreen keeps the desktop's display mode.
+    if (g_bFullscreen == 1 && !Present_KeepsDisplayMode()) {
         const OGLDisplayModeRec &rec = g_aDisplayModes[nResolution];
         DEVMODEA dmFound;
         if (!Platform_FindDisplayMode(g_hDisplay, OGLDisplayMode_Width(rec), OGLDisplayMode_Height(rec),
@@ -316,6 +321,9 @@ BOOL OGL_PlatformOpenWindow(int nResolution)
             g_ptWindowOrigin = ptOrigin;
             glViewport(0, 0, g_nScreenWidth, g_nScreenHeight);
         }
+        // Present stage: draw into the game-sized off-screen buffer, which the swap scales into the window.
+        if (Present_Open(g_hWnd, g_hDC, g_nScreenWidth, g_nScreenHeight, g_bFullscreen == 1))
+            glViewport(0, 0, g_nScreenWidth, g_nScreenHeight);
 
         if (!OGL_PlatformSetRenderer(g_hDC, nPixelFormat)) {
             szError = "OpenGLMacOpenWindow: *** OpenGLMacSetRenderer failed.";
@@ -374,6 +382,7 @@ BOOL OGL_PlatformSetRenderer(HDC hDC, int nPixelFormat)
 void OGL_DisposeWindow(void)
 {
     if (g_hGLRC != NULL) {
+        Present_Close();  // present stage: its GL objects go with the context
         wglMakeCurrent(NULL, NULL);
         wglDeleteContext(g_hGLRC);
         g_hGLRC = NULL;
@@ -389,7 +398,9 @@ void OGL_DisposeWindow(void)
 // Mac 002e173e OGL_SwapBuffers
 void OGL_SwapBuffers(void)
 {
-    SwapBuffers(g_hDC);
+    // Present stage: scale the off-screen frame into the window, then swap.
+    if (!Present_SwapBuffers(g_hDC))
+        SwapBuffers(g_hDC);
 }
 
 // A QuickDraw Point: v (y) first, then h (x).
@@ -510,7 +521,7 @@ void OGL_ClearDisplay(void)
     // display here, so a full clear and a swap do the same.
     if (g_bFullscreen == 1) {
         glClear(GL_COLOR_BUFFER_BIT);
-        SwapBuffers(g_hDC);
+        OGL_SwapBuffers();  // present stage: through the off-screen frame when it is open
     }
 }
 
@@ -661,7 +672,8 @@ BOOL Platform_EventAvail(uint16_t wCarbonMask)
 // The cursor position in screen coordinates.
 void Platform_GetCursorPos(POINT *pPt)
 {
-    if (!GetCursorPos(pPt)) {
+    // Present stage: in the game's coordinates, as the game's own GetCursorPos calls see them.
+    if (!Present_GetCursorPos(pPt)) {
         pPt->x = 0;
         pPt->y = 0;
     }

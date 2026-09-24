@@ -6,6 +6,7 @@
  * succeeds as soon as D2gfx.dll is there, before D2gfx has chosen a renderer. */
 #include <windows.h>
 
+#include "present/present.h"
 
 /* Returns TRUE once the renderer is installed. */
 BOOL d2opengl_attach(void);
@@ -16,7 +17,8 @@ static LoadLibraryAFn g_real_load_library;
 static HMODULE WINAPI load_library_hook(LPCSTR name)
 {
     HMODULE module = g_real_load_library(name);
-    d2opengl_attach();
+    if (d2opengl_attach())
+        present_patch_modules();
     return module;
 }
 

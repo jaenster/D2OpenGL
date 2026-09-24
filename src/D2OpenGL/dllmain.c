@@ -7,6 +7,7 @@
 #include "../common/log.h"
 #include "install/install.h"
 #include "renderer.h"
+#include "present/present.h"
 
 HINSTANCE g_self;
 
@@ -35,6 +36,7 @@ BOOL d2opengl_attach(void)
     attached = TRUE;
     d2log_reset();
     d2log("D2OpenGL: host is %s", build_name(build));
+    present_install(g_self);
     switch (build) {
     case BUILD_114D: {
         void *const *table = renderer_query();

@@ -28,11 +28,37 @@ warning for the 1.10 files; the game runs regardless.
 No game file is modified on disk; the DLL re-enables the game's OpenGL path in memory, and only with
 `-opengl`. A log is written to `D2OpenGL.log` in the game folder. Other game versions are left alone.
 
+## Display
+
+Settings are read from `D2OpenGL.ini` next to `D2OpenGL.dll`; without the file the defaults apply.
+
+    [Display]
+    Scaling    = auto        ; auto, off, or a whole number
+    Fullscreen = exclusive   ; exclusive or borderless
+    Filter     = sharp       ; sharp, nearest or linear
+    Shader     = none        ; none or crt
+
+    [CRT]
+    Scanlines  = 0.30        ; 0 to 1
+    Mask       = 0.15
+    Glow       = 0.08
+
+- **Scaling**: the game still draws at 640x480 or 800x600; the picture is scaled up to the window.
+  `auto` windowed picks the largest whole multiple that fits the screen. `off` draws exactly as the Mac
+  renderer does, with no scaling and a display mode switch in fullscreen.
+- **Fullscreen**: `exclusive` switches the display to the game's resolution; `borderless` covers the
+  monitor at the desktop resolution and fits the picture to it, keeping the aspect ratio (still has
+  problems).
+- **Filter**: `sharp` keeps pixels square and crisp at any size, `nearest` repeats pixels, `linear`
+  blurs.
+- **Shader**: `crt` imitates a late-1990s PC monitor (aperture grille, fine scanlines, a little glow).
+
 ## Status
 
 - Diablo II 1.14d, 1.13d, 1.13c and 1.10f.
 - So far tested on Windows 11 in a virtual machine (Parallels). 1.14d windowed and fullscreen; 1.13d and
-  1.13c in game, windowed; 1.10f to the main menu, windowed and fullscreen.
+  1.13c in game, windowed; 1.10f to the main menu, windowed and fullscreen. Scaling and the CRT shader
+  so far only on 1.14d.
 
 ## Build
 
