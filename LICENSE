@@ -2,11 +2,13 @@ This licence covers only the code written for this project:
 
   src/common/
   src/D2OpenGL/dllmain.c
+  src/D2OpenGL/crashlog.c, src/D2OpenGL/crashlog.h
   src/D2OpenGL/launch.c
   src/D2OpenGL/d2loader.c
   src/D2OpenGL/install/
   src/D2OpenGL/host/
   src/D2OpenGL/present/
+  src/D2OpenGL/upscale/
   src/D2OpenGL/renderer/slots.cpp
   Makefile, .github/
 
@@ -19,6 +21,30 @@ Diablo is a trademark of Blizzard Entertainment, Inc.
 MIT License
 
 Copyright (c) 2026 jaenster
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
+following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+D2OpenGL.dll links libd2's MMPX (third_party/libd2/packages/util/src/mmpx.zig), a port of the MMPX
+reference implementation, which carries this notice:
+
+Copyright 2020 Morgan McGuire & Mara Gagiu.
+Available under the MIT license.
+https://casual-effects.com/research/McGuire2021PixelArt/index.html
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction, including

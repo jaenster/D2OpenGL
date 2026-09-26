@@ -228,9 +228,11 @@ extern "C" void present_install(HINSTANCE hSelf)
     char szScaling[16] = "auto";
     if (cfg.eScaling == SCALING_FIXED)
         snprintf(szScaling, sizeof(szScaling), "%d", cfg.nScale);
-    d2log("present: Scaling=%s Fullscreen=%s Filter=%s Shader=%s (Scanlines %.2f Mask %.2f Glow %.2f)", szScaling,
-          cfg.bBorderless ? "borderless" : "exclusive", s_aszFilters[cfg.eFilter],
-          cfg.eShader == SHADER_CRT ? "crt" : "none", (double)cfg.fScanlines, (double)cfg.fMask,
+    d2log("present: Scaling=%s Fullscreen=%s Filter=%s Shader=%s RenderScale=%d Upscale=%s (Scanlines %.2f Mask "
+          "%.2f Glow %.2f)",
+          szScaling, cfg.bBorderless ? "borderless" : "exclusive", s_aszFilters[cfg.eFilter],
+          cfg.eShader == SHADER_CRT ? "crt" : "none", cfg.nRenderScale,
+          cfg.eUpscale == UPSCALE_MMPX ? "mmpx" : "none", (double)cfg.fScanlines, (double)cfg.fMask,
           (double)cfg.fGlow);
     MakeDpiAware();
     PresentImports_Init();

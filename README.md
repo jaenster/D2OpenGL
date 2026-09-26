@@ -37,13 +37,15 @@ Settings are read from `D2OpenGL.ini` next to `D2OpenGL.dll`; without the file t
     Fullscreen = exclusive   ; exclusive or borderless
     Filter     = sharp       ; sharp, nearest or linear
     Shader     = none        ; none or crt
+    RenderScale = 2          ; 1 to 4
+    Upscale    = mmpx        ; mmpx or none
 
     [CRT]
     Scanlines  = 0.30        ; 0 to 1
     Mask       = 0.15
     Glow       = 0.08
 
-- **Scaling**: the game still draws at 640x480 or 800x600; the picture is scaled up to the window.
+- **Scaling**: the game still runs at 640x480 or 800x600; the picture is scaled up to the window.
   `auto` windowed picks the largest whole multiple that fits the screen. `off` draws exactly as the Mac
   renderer does, with no scaling and a display mode switch in fullscreen.
 - **Fullscreen**: `exclusive` switches the display to the game's resolution; `borderless` covers the
@@ -52,6 +54,12 @@ Settings are read from `D2OpenGL.ini` next to `D2OpenGL.dll`; without the file t
 - **Filter**: `sharp` keeps pixels square and crisp at any size, `nearest` repeats pixels, `linear`
   blurs.
 - **Shader**: `crt` imitates a late-1990s PC monitor (aperture grille, fine scanlines, a little glow).
+- **RenderScale**: the picture is drawn at this multiple of the game's resolution before it is scaled
+  to the window. `1` draws at the game's resolution. Ignored with `Scaling = off`.
+- **Upscale**: with a render scale above 1, `mmpx` enlarges sprites (characters, monsters, items, the
+  interface) with the MMPX pixel-art filter before they are coloured, so they keep the game's 256
+  colours and colour variants; `none` draws them with plain square pixels. Floors and walls are not
+  enlarged. At `RenderScale = 3` sprites are enlarged 2x and drawn at 3x.
 
 ## Status
 
@@ -62,8 +70,10 @@ Settings are read from `D2OpenGL.ini` next to `D2OpenGL.dll`; without the file t
 
 ## Build
 
-With the mingw-w64 i686 toolchain (`i686-w64-mingw32-gcc`/`g++`):
+With the mingw-w64 i686 toolchain (`i686-w64-mingw32-gcc`/`g++`) and Zig 0.16 (for the libd2
+submodule):
 
+    git submodule update --init
     make
 
 The DLL is written to `build/D2OpenGL.dll`.

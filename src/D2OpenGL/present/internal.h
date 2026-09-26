@@ -8,6 +8,7 @@
 enum PresentScalingMode { SCALING_OFF, SCALING_AUTO, SCALING_FIXED };
 enum PresentFilter { FILTER_NEAREST, FILTER_SHARP, FILTER_LINEAR };
 enum PresentShader { SHADER_NONE, SHADER_CRT };
+enum PresentUpscale { UPSCALE_NONE, UPSCALE_MMPX };
 
 struct PresentConfig {
     PresentScalingMode eScaling;
@@ -15,9 +16,13 @@ struct PresentConfig {
     bool bBorderless;  // Fullscreen=borderless
     PresentFilter eFilter;
     PresentShader eShader;
+    int nRenderScale;  // 1..4: the off-screen buffer is the game size times this
+    PresentUpscale eUpscale;
     float fScanlines;  // [CRT] Scanlines, 0..1
     float fMask;       // [CRT] Mask, 0..1
     float fGlow;       // [CRT] Glow, 0..1
+    char szHDPack[MAX_PATH];  // HDPack: the pack file, or empty for none
+    int nToggleKey;           // ToggleKey: virtual key that switches upscaled and original sprites, 0 = none
 };
 
 // config.cpp

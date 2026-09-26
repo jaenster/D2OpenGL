@@ -4,6 +4,8 @@
 
 #include "renderer.h"
 
+#include "../upscale/sprite_upscale.h"
+
 // ================================================================================================
 // oglPerspective.cpp
 
@@ -624,7 +626,13 @@ BOOL OGL_SpriteBindTexture(const OGLSprite *pSprite, BYTE *pPalette, BYTE nOutli
         break;
     }
 
-    g_pTextures->CreateTexture(pUpload, nPitch, nTexHeight, TEXOWNER_SPRITE, pSlots, nSlot, (int)(intptr_t)pPalette);
+    // Upscale: the texture is made from the index image magnified in index space, or from the HD
+    // pack (upscale/sprite_upscale.h); its texture coordinates stay the same fractions.
+    int nUploadWidth = nPitch;
+    int nUploadHeight = nTexHeight;
+    const BYTE *pScaled = Upscale_Sprite(pSprite, pUpload, nSlot, pPalette, &nUploadWidth, &nUploadHeight);
+    g_pTextures->CreateTexture(pScaled, nUploadWidth, nUploadHeight, TEXOWNER_SPRITE, pSlots, nSlot,
+                               (int)(intptr_t)pPalette);
     OGL_SetTextureFilter(OGL_FILTER_NEAREST);
     g_pTextures->BindTextureById(pSlots[nSlot].nTextureId);
     return TRUE;

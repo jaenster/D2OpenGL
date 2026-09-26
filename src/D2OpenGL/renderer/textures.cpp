@@ -3,6 +3,8 @@
 
 #include "renderer.h"
 
+#include "../upscale/sprite_upscale.h"
+
 #include <stdlib.h>
 
 // ---- CD2Textures
@@ -341,6 +343,10 @@ COGLTextures::COGLTextures(int nMemoryBudget) : CD2Textures(256, 256, 0, nMemory
 {
     m_nBoundTexture = 0;
     m_bPackedPixels = strstr((const char *)glGetString(GL_EXTENSIONS), "GL_APPLE_packed_pixel") != NULL;
+    // Upscale: sprite textures are made larger (upscale/sprite_upscale.h); the staging buffer holds them.
+    int nUpscale = Upscale_OpenTextures();
+    m_nMaxWidth *= nUpscale;
+    m_nMaxHeight *= nUpscale;
     InitStaging(m_bPackedPixels ? 2 : 4);
 }
 
@@ -348,6 +354,7 @@ COGLTextures::COGLTextures(int nMemoryBudget) : CD2Textures(256, 256, 0, nMemory
 COGLTextures::~COGLTextures()
 {
     Flush();
+    Upscale_CloseTextures();  // upscale
 }
 
 // Mac 002de3ce

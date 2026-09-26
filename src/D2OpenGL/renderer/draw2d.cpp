@@ -5,10 +5,13 @@
 
 #include "renderer.h"
 
+#include "../present/present.h"
+
 // Mac 002df9e2
 BOOL OGL_GetBackBuffer(BYTE *pBuffer)
 {
     int nRow = g_nScreenHeight;
+    Present_BeginReadBack();  // present stage: a game-sized copy of a larger render
     if (nRow > 0) {
         int nWidth = g_nScreenWidth;
         int nPitch = nWidth * 3;
@@ -20,6 +23,7 @@ BOOL OGL_GetBackBuffer(BYTE *pBuffer)
             pBuffer += nPitch;
         } while (nRow > 0);
     }
+    Present_EndReadBack();
     return TRUE;
 }
 

@@ -8,6 +8,7 @@
 // asks for is turned into the real one.
 
 #include "internal.h"
+#include "present.h"
 
 #include "../../common/log.h"
 
@@ -188,6 +189,10 @@ LPARAM MakePoint(POINT pt)
 LRESULT CALLBACK PresentWindowProc(HWND hWnd, UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
     WNDPROC pfnGameProc = s_pfnGameProc;
+    // Not taken from the game: the key still reaches it (and chat).
+    if (nMsg == WM_KEYDOWN && g_presentConfig.nToggleKey && (int)wParam == g_presentConfig.nToggleKey &&
+        !(lParam & (1 << 30)))
+        Present_RequestToggle();
     if (!s_bMapped)
         return CallWindowProcA(pfnGameProc, hWnd, nMsg, wParam, lParam);
     switch (nMsg) {

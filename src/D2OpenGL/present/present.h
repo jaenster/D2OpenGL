@@ -37,8 +37,26 @@ bool Present_Open(HWND hWnd, HDC hDC, int nWidth, int nHeight, bool bFullscreen)
 // Frees the stage's GL objects; the context must still be current.
 void Present_Close(void);
 
+// The factor the off-screen buffer is larger than the game in each direction: 1 when the stage is
+// not open. The renderer's projection stays in game coordinates; its viewport covers the buffer.
+int Present_RenderScale(void);
+
+// Whether sprites are upscaled (Upscale=mmpx) when the render scale is above 1.
+bool Present_UpscaleSprites(void);
+
+// The HD pack file (HDPack, or D2OpenGL.hd next to the DLL), or NULL for none.
+const char *Present_HDPackPath(void);
+
+// The renderer's screen read (slot 10) wants a game-sized image: between these two calls the bound
+// framebuffer holds the frame at the game size. Nothing happens at render scale 1.
+void Present_BeginReadBack(void);
+void Present_EndReadBack(void);
+
 // Draws the frame into the window and swaps; false when the stage is not open.
 bool Present_SwapBuffers(HDC hDC);
+
+// ToggleKey was pressed: the next swap switches between upscaled and original sprites.
+void Present_RequestToggle(void);
 
 // GetCursorPos as the game sees it.
 BOOL Present_GetCursorPos(POINT *pPt);

@@ -321,9 +321,10 @@ BOOL OGL_PlatformOpenWindow(int nResolution)
             g_ptWindowOrigin = ptOrigin;
             glViewport(0, 0, g_nScreenWidth, g_nScreenHeight);
         }
-        // Present stage: draw into the game-sized off-screen buffer, which the swap scales into the window.
+        // Present stage: draw into the off-screen buffer (the game size times the render scale), which
+        // the swap scales into the window.
         if (Present_Open(g_hWnd, g_hDC, g_nScreenWidth, g_nScreenHeight, g_bFullscreen == 1))
-            glViewport(0, 0, g_nScreenWidth, g_nScreenHeight);
+            glViewport(0, 0, g_nScreenWidth * Present_RenderScale(), g_nScreenHeight * Present_RenderScale());
 
         if (!OGL_PlatformSetRenderer(g_hDC, nPixelFormat)) {
             szError = "OpenGLMacOpenWindow: *** OpenGLMacSetRenderer failed.";

@@ -1,7 +1,7 @@
-// The GL half of the present stage: the game-sized framebuffer object the renderer draws into, and the
-// swap that draws it into the window. The renderer's own GL state is left as it was: the swap saves and
-// restores everything it touches, and the renderer only ever sees its framebuffer object bound (so its
-// glReadPixels screen grab reads the game-sized image).
+// The GL half of the present stage: the framebuffer object the renderer draws into (the game size times
+// the render scale), and the swap that draws it into the window. The renderer's own GL state is left as
+// it was: the swap saves and restores everything it touches, and the renderer only ever sees its
+// framebuffer object bound. Its glReadPixels screen grab reads a game-sized copy (Present_BeginReadBack).
 
 #include <GL/gl.h>
 
@@ -9,6 +9,8 @@
 #include "present.h"
 
 #include "../../common/log.h"
+#include "../renderer/renderer.h"
+#include "../upscale/sprite_upscale.h"
 
 namespace {
 
@@ -55,10 +57,13 @@ struct PresentGL {
 PresentGL s_gl;
 bool s_bFailed;  // the stage could not run on this machine: the renderer draws straight to the window
 bool s_bOpen;
-int s_nWidth;
+int s_nWidth;   // the game size
 int s_nHeight;
+int s_nRenderScale = 1;
 GLuint s_nFramebuffer;
 GLuint s_nTexture;
+GLuint s_nReadFramebuffer;  // render scale above 1: the game-sized copy the screen read reads
+GLuint s_nReadTexture;
 GLuint s_nProgram;
 bool s_bTextureRectangle;
 unsigned s_nFrame;
@@ -180,6 +185,15 @@ void ClearErrors(const char *szWhere)
 
 void DeleteObjects(void)
 {
+    if (s_nReadFramebuffer) {
+        s_gl.BindFramebuffer(kFramebuffer, 0);
+        s_gl.DeleteFramebuffers(1, &s_nReadFramebuffer);
+        s_nReadFramebuffer = 0;
+    }
+    if (s_nReadTexture) {
+        glDeleteTextures(1, &s_nReadTexture);
+        s_nReadTexture = 0;
+    }
     if (s_nProgram) {
         s_gl.UseProgram(0);
         s_gl.DeleteProgram(s_nProgram);
@@ -196,11 +210,12 @@ void DeleteObjects(void)
     }
 }
 
-bool CreateObjects(int nWidth, int nHeight)
+// A colour texture of this size and a framebuffer object drawing into it, cleared to black.
+bool CreateTarget(GLuint *pnTexture, GLuint *pnFramebuffer, int nWidth, int nHeight)
 {
     glPushAttrib(GL_TEXTURE_BIT);
-    glGenTextures(1, &s_nTexture);
-    glBindTexture(GL_TEXTURE_2D, s_nTexture);
+    glGenTextures(1, pnTexture);
+    glBindTexture(GL_TEXTURE_2D, *pnTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, kClampToEdge);
@@ -208,16 +223,45 @@ bool CreateObjects(int nWidth, int nHeight)
     glTexImage2D(GL_TEXTURE_2D, 0, kRgba8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glPopAttrib();
 
-    s_gl.GenFramebuffers(1, &s_nFramebuffer);
-    s_gl.BindFramebuffer(kFramebuffer, s_nFramebuffer);
-    s_gl.FramebufferTexture2D(kFramebuffer, kColorAttachment0, GL_TEXTURE_2D, s_nTexture, 0);
+    s_gl.GenFramebuffers(1, pnFramebuffer);
+    s_gl.BindFramebuffer(kFramebuffer, *pnFramebuffer);
+    s_gl.FramebufferTexture2D(kFramebuffer, kColorAttachment0, GL_TEXTURE_2D, *pnTexture, 0);
     GLenum eStatus = s_gl.CheckFramebufferStatus(kFramebuffer);
     if (eStatus != kFramebufferComplete) {
-        d2log("present: framebuffer incomplete (%04x)", eStatus);
+        d2log("present: framebuffer incomplete (%04x) at %dx%d", eStatus, nWidth, nHeight);
         return false;
     }
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    return true;
+}
+
+// The render scale this GL can draw at: the buffer must fit the texture and viewport limits.
+int FitRenderScale(int nWidth, int nHeight, int nScale)
+{
+    GLint nMaxTexture = 0;
+    GLint anMaxViewport[2] = {0, 0};
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &nMaxTexture);
+    glGetIntegerv(GL_MAX_VIEWPORT_DIMS, anMaxViewport);
+    int nFit = nScale;
+    while (nFit > 1 && (nWidth * nFit > nMaxTexture || nHeight * nFit > nMaxTexture ||
+                        nWidth * nFit > anMaxViewport[0] || nHeight * nFit > anMaxViewport[1]))
+        --nFit;
+    if (nFit != nScale)
+        d2log("present: RenderScale=%d does not fit (texture %d, viewport %dx%d); %d used", nScale, nMaxTexture,
+              anMaxViewport[0], anMaxViewport[1], nFit);
+    return nFit;
+}
+
+bool CreateObjects(int nWidth, int nHeight)
+{
+    if (s_nRenderScale > 1 && !CreateTarget(&s_nReadTexture, &s_nReadFramebuffer, nWidth, nHeight))
+        return false;
+    if (!CreateTarget(&s_nTexture, &s_nFramebuffer, nWidth * s_nRenderScale, nHeight * s_nRenderScale))
+        return false;
+    // The renderer's one-pixel lines and points keep their weight in game pixels.
+    glLineWidth((GLfloat)s_nRenderScale);
+    glPointSize((GLfloat)s_nRenderScale);
 
     const PresentConfig &cfg = g_presentConfig;
     bool bNeedsShader = cfg.eShader == SHADER_CRT || cfg.eFilter == FILTER_SHARP;
@@ -237,7 +281,10 @@ void SetUniforms(const PresentImage &image)
 {
     const PresentConfig &cfg = g_presentConfig;
     s_gl.Uniform1i(s_gl.GetUniformLocation(s_nProgram, "uTexture"), 0);
-    s_gl.Uniform2f(s_gl.GetUniformLocation(s_nProgram, "uGameSize"), (float)s_nWidth, (float)s_nHeight);
+    // The sharp filter scales the rendered image, the CRT emulates a screen at the game's resolution.
+    int nSourceScale = cfg.eShader == SHADER_CRT ? 1 : s_nRenderScale;
+    s_gl.Uniform2f(s_gl.GetUniformLocation(s_nProgram, "uGameSize"), (float)(s_nWidth * nSourceScale),
+                   (float)(s_nHeight * nSourceScale));
     s_gl.Uniform2f(s_gl.GetUniformLocation(s_nProgram, "uImageSize"), (float)image.nWidth, (float)image.nHeight);
     if (cfg.eShader == SHADER_CRT) {
         s_gl.Uniform1f(s_gl.GetUniformLocation(s_nProgram, "uScanlines"), cfg.fScanlines);
@@ -246,13 +293,10 @@ void SetUniforms(const PresentImage &image)
     }
 }
 
-// Draws the game image into the bound default framebuffer.
-void DrawImage(void)
+// Saves every piece of GL state the stage's own drawing changes and sets a plain, untextured,
+// unblended state with identity matrices.
+void PushState(void)
 {
-    PresentImage image;
-    int nClientWidth, nClientHeight;
-    PresentWindow_GetImage(&image, &nClientWidth, &nClientHeight);
-
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
     glMatrixMode(GL_TEXTURE);
@@ -276,42 +320,10 @@ void DrawImage(void)
     glDisable(GL_DITHER);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
 
-    // The bars.
-    glViewport(0, 0, nClientWidth, nClientHeight);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // GL's window origin is the bottom-left corner.
-    glViewport(image.nX, nClientHeight - image.nY - image.nHeight, image.nWidth, image.nHeight);
-    s_gl.ActiveTexture(kTexture0);
-    if (s_bTextureRectangle)
-        glDisable(kTextureRectangle);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, s_nTexture);
-    GLint nFilter = g_presentConfig.eFilter == FILTER_NEAREST && !s_nProgram ? GL_NEAREST : GL_LINEAR;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, nFilter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, nFilter);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    if (s_nProgram) {
-        s_gl.UseProgram(s_nProgram);
-        SetUniforms(image);
-    }
-
-    glBegin(GL_TRIANGLE_STRIP);
-    glTexCoord2f(0.0f, 0.0f);
-    glVertex2f(-1.0f, -1.0f);
-    glTexCoord2f(1.0f, 0.0f);
-    glVertex2f(1.0f, -1.0f);
-    glTexCoord2f(0.0f, 1.0f);
-    glVertex2f(-1.0f, 1.0f);
-    glTexCoord2f(1.0f, 1.0f);
-    glVertex2f(1.0f, 1.0f);
-    glEnd();
-
-    if (s_nProgram)
-        s_gl.UseProgram(0);
+void PopState(void)
+{
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -322,11 +334,108 @@ void DrawImage(void)
     glPopAttrib();
 }
 
+// The whole frame as a quad in clip space, texture coordinates shifted by (fShiftS, fShiftT).
+void DrawQuad(float fShiftS, float fShiftT)
+{
+    glBegin(GL_TRIANGLE_STRIP);
+    glTexCoord2f(0.0f + fShiftS, 0.0f + fShiftT);
+    glVertex2f(-1.0f, -1.0f);
+    glTexCoord2f(1.0f + fShiftS, 0.0f + fShiftT);
+    glVertex2f(1.0f, -1.0f);
+    glTexCoord2f(0.0f + fShiftS, 1.0f + fShiftT);
+    glVertex2f(-1.0f, 1.0f);
+    glTexCoord2f(1.0f + fShiftS, 1.0f + fShiftT);
+    glVertex2f(1.0f, 1.0f);
+    glEnd();
+}
+
+// Binds the frame's texture on unit 0 for a textured draw with this filter.
+void BindFrameTexture(GLint nFilter)
+{
+    s_gl.ActiveTexture(kTexture0);
+    if (s_bTextureRectangle)
+        glDisable(kTextureRectangle);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, s_nTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, nFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, nFilter);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+// Draws the game image into the bound default framebuffer.
+void DrawImage(void)
+{
+    PresentImage image;
+    int nClientWidth, nClientHeight;
+    PresentWindow_GetImage(&image, &nClientWidth, &nClientHeight);
+
+    PushState();
+
+    // The bars.
+    glViewport(0, 0, nClientWidth, nClientHeight);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // GL's window origin is the bottom-left corner.
+    glViewport(image.nX, nClientHeight - image.nY - image.nHeight, image.nWidth, image.nHeight);
+    BindFrameTexture(g_presentConfig.eFilter == FILTER_NEAREST && !s_nProgram ? GL_NEAREST : GL_LINEAR);
+    if (s_nProgram) {
+        s_gl.UseProgram(s_nProgram);
+        SetUniforms(image);
+    }
+    DrawQuad(0.0f, 0.0f);
+    if (s_nProgram)
+        s_gl.UseProgram(0);
+
+    PopState();
+}
+
 }  // namespace
 
 bool Present_KeepsDisplayMode(void)
 {
     return g_presentConfig.eScaling != SCALING_OFF && g_presentConfig.bBorderless && !s_bFailed;
+}
+
+int Present_RenderScale(void)
+{
+    return s_bOpen ? s_nRenderScale : 1;
+}
+
+bool Present_UpscaleSprites(void)
+{
+    return g_presentConfig.eUpscale == UPSCALE_MMPX;
+}
+
+const char *Present_HDPackPath(void)
+{
+    return g_presentConfig.szHDPack[0] ? g_presentConfig.szHDPack : NULL;
+}
+
+void Present_BeginReadBack(void)
+{
+    if (!s_bOpen || s_nRenderScale == 1)
+        return;
+    // Each game pixel is read from one pixel of its block (the centre one, or above-left of the centre),
+    // never an average: the image keeps the frame's colours.
+    int nPick = (s_nRenderScale - 1) / 2;
+    float fShiftS = ((float)nPick + 0.5f - 0.5f * (float)s_nRenderScale) / (float)(s_nWidth * s_nRenderScale);
+    float fShiftT = ((float)nPick + 0.5f - 0.5f * (float)s_nRenderScale) / (float)(s_nHeight * s_nRenderScale);
+    s_gl.BindFramebuffer(kFramebuffer, s_nReadFramebuffer);
+    PushState();
+    glViewport(0, 0, s_nWidth, s_nHeight);
+    BindFrameTexture(GL_NEAREST);
+    DrawQuad(fShiftS, fShiftT);
+    PopState();
+    ClearErrors("read");
+}
+
+void Present_EndReadBack(void)
+{
+    if (!s_bOpen || s_nRenderScale == 1)
+        return;
+    s_gl.BindFramebuffer(kFramebuffer, s_nFramebuffer);
 }
 
 bool Present_Open(HWND hWnd, HDC hDC, int nWidth, int nHeight, bool bFullscreen)
@@ -346,6 +455,7 @@ bool Present_Open(HWND hWnd, HDC hDC, int nWidth, int nHeight, bool bFullscreen)
     }
     s_bTextureRectangle = HasExtension("GL_ARB_texture_rectangle") || HasExtension("GL_EXT_texture_rectangle") ||
                           HasExtension("GL_NV_texture_rectangle");
+    s_nRenderScale = FitRenderScale(nWidth, nHeight, g_presentConfig.nRenderScale);
     if (!CreateObjects(nWidth, nHeight)) {
         DeleteObjects();
         ClearErrors("setup");
@@ -358,6 +468,8 @@ bool Present_Open(HWND hWnd, HDC hDC, int nWidth, int nHeight, bool bFullscreen)
     s_nWidth = nWidth;
     s_nHeight = nHeight;
     s_bOpen = true;
+    d2log("present: %dx%d, render scale %d, sprites %s", nWidth, nHeight, s_nRenderScale,
+          s_nRenderScale > 1 && Present_UpscaleSprites() ? "upscaled (mmpx)" : "not upscaled");
     if (!PresentWindow_Attach(hWnd, nWidth, nHeight, bFullscreen)) {
         Present_Close();
         s_bFailed = true;
@@ -376,6 +488,13 @@ void Present_Close(void)
     s_bOpen = false;
 }
 
+volatile LONG s_nTogglePending;
+
+void Present_RequestToggle(void)
+{
+    InterlockedExchange(&s_nTogglePending, 1);
+}
+
 bool Present_SwapBuffers(HDC hDC)
 {
     if (!s_bOpen)
@@ -384,6 +503,12 @@ bool Present_SwapBuffers(HDC hDC)
     DrawImage();
     SwapBuffers(hDC);
     s_gl.BindFramebuffer(kFramebuffer, s_nFramebuffer);
+    // Between frames, on the render thread: switch the sprite mode and let every texture be made again.
+    if (InterlockedExchange(&s_nTogglePending, 0)) {
+        Upscale_ToggleOriginal();
+        if (g_pTextures)
+            g_pTextures->FreeAllTextures();
+    }
     ClearErrors("swap");
     // Game modules loaded after the window was made.
     if ((++s_nFrame & 63) == 0)

@@ -1,7 +1,10 @@
 // The cutscene GL state and Bink player, the oglBlocks decoders, and the init/window/scene/cutscene
 // slot functions (Mac 002de719-002df9b9).
 
+#include "../upscale/sprite_upscale.h"
 #include "renderer.h"
+
+#include "../present/present.h"
 
 // GL_TEXTURE_RECTANGLE_ARB is only a valid capability where the driver has a texture rectangle
 // extension; elsewhere glGetBooleanv/glEnable/glDisable on it raise GL_INVALID_ENUM.
@@ -232,9 +235,14 @@ BOOL OGL_BindFloorTileTexture(D2TileLibraryEntryStrc *pTile)
             g_pTextures->CreateTexture(g_pFloorTileBuffer, 0xa0, 0x50, TEXOWNER_TILE, pTile, 0, 0);
         } else {
             OGL_DecodeFloorTileBlocks(pTile, g_pFloorTileBuffer, 0x100);
-            g_pTextures->CreateTexture(g_pFloorTileBuffer, 0x100, 0x80, TEXOWNER_TILE, pTile, 0, 0);
+            // Upscale: a larger image of the same texture; its coordinates are fractions.
+            const BYTE *pScaled = Upscale_FloorTile(g_pFloorTileBuffer, 0x100, 0x80, 0x100, 0xa0, 0x50);
+            int nFactor = pScaled ? Upscale_TileFactor() : 1;
+            g_pTextures->CreateTexture(pScaled ? pScaled : g_pFloorTileBuffer, 0x100 * nFactor, 0x80 * nFactor,
+                                       TEXOWNER_TILE, pTile, 0, 0);
         }
-        OGL_SetTextureFilter(OGL_FILTER_LINEAR);
+        // Present stage: above render scale 1 the floor is magnified; nearest keeps its texels square.
+        OGL_SetTextureFilter(Present_RenderScale() > 1 ? OGL_FILTER_NEAREST : OGL_FILTER_LINEAR);
         nTextureId = pTile->nTextureCacheIndex;
     }
     g_pTextures->BindTextureById(nTextureId);
@@ -313,7 +321,11 @@ void OGL_BindWallBlockTexture(D2TileLibraryBlockStrc *pBlock)
             }
             pRow += 0x20;
         }
-        g_pTextures->CreateTexture(g_pWallBlockBuffer, 0x20, 0x20, TEXOWNER_BLOCK, pBlock, 0, 0);
+        // Upscale: only where texture coordinates are fractions (rectangle textures address texels).
+        const BYTE *pScaled = g_bTextureRectangle ? NULL : Upscale_WallBlock(g_pWallBlockBuffer, 0x20, 0x20);
+        int nFactor = pScaled ? Upscale_TileFactor() : 1;
+        g_pTextures->CreateTexture(pScaled ? pScaled : g_pWallBlockBuffer, 0x20 * nFactor, 0x20 * nFactor,
+                                   TEXOWNER_BLOCK, pBlock, 0, 0);
         OGL_SetTextureFilter(OGL_FILTER_NEAREST);
         nTextureId = pBlock->nTextureIndex;
     }
