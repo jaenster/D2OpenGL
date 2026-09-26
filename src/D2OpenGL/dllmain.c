@@ -5,6 +5,7 @@
 
 #include "../common/build.h"
 #include "../common/log.h"
+#include "crashlog.h"
 #include "install/install.h"
 #include "renderer.h"
 #include "present/present.h"
@@ -36,6 +37,7 @@ BOOL d2opengl_attach(void)
     attached = TRUE;
     d2log_reset();
     d2log("D2OpenGL: host is %s", build_name(build));
+    crashlog_install(g_self);
     present_install(g_self);
     switch (build) {
     case BUILD_114D: {
